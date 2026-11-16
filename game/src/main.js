@@ -31,6 +31,10 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// filmic tone mapping is what makes the dusk grade read as a grade instead
+// of flat-lit geometry: highlights roll off, the sodium lamps bloom warm
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.3;
 document.getElementById('game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -378,7 +382,7 @@ function frame(nowMs) {
     syncMeshes(nowMs);
     syncCamera();
     fx.update(dt);
-    hud.sync(match, player, nowMs);
+    hud.sync(match, player, nowMs, actors, world);
   }
   renderer.render(scene, camera);
 }
@@ -411,13 +415,17 @@ function stageShot(name) {
   const now = performance.now();
   if (name === 'start') {
     // buy phase at the south gate, menu open, the yard ahead — the cover
-    // frame shows the game itself, not the title screen
+    // frame shows the game itself, not the title screen. A mid-match purse
+    // ($2,650) so the menu shows a real choice, not a wall of unaffordables.
+    player.money = 2650;
     place(player, 0, 40, Math.PI);
     controller.aimAt(new THREE.Vector3(-8, 1.4, -10));
     buyOpen = true;
     hud.setBuyOpen(true, player);
     settle(6);
   } else if (name === 'play') {
+    // combat at the mid doors: the player trades fire with Havoc in the gap
+    // while a Veil smoke blooms on the crossway and the feed tells the story
     match.phase = 'live';
     match.phaseEndsAt = now + 76000;
     player.weapons.primary = createWeaponState(WEAPONS.longline);
@@ -426,6 +434,7 @@ function stageShot(name) {
     place(player, 0, 12, Math.PI);
     place(actors[1], -10, 6, Math.PI * 0.8); // Rook pushes the plaza
     place(actors[2], 6, 22, Math.PI); // Sable covers behind
+    place(actors[3], -16, 16, Math.PI * 0.9); // Fenn wide left
     const havoc = actors[4];
     place(havoc, 0.3, -9, 0.4); // a Warden framed in the mid doors gap
     havoc.health = 55;
@@ -436,6 +445,13 @@ function stageShot(name) {
     syncCamera();
     playerFire(performance.now());
     settle(2);
+    // dressing that survives the freeze: impact sparks on the door frame, a
+    // smoke cloud eating the crossway, a live kill feed, a fresh hitmarker
+    fx.sparks(new THREE.Vector3(1.4, 1.3, -6.5), 0xffc37a, 12, 4.2);
+    fx.smokeCloud(new THREE.Vector3(6.5, 1.1, -12), 3.4, 9000);
+    hud.kill('Rook ▸ Talon', 'attack');
+    hud.kill('Havoc ▸ Sable', 'defend');
+    hud.hitmarker(false);
   } else if (name === 'plant') {
     match.phase = 'live';
     match.phaseEndsAt = now + 40000;
@@ -452,27 +468,42 @@ function stageShot(name) {
     settle(4);
     controller.aimAt(new THREE.Vector3(actors[5].body.pos.x, 1.2, actors[5].body.pos.z));
     hud.announce('', '', 0);
+    // Mira is on the charge: the defuse bar is the frame's tension
+    hud.setProgress(0.45, 'Defuse in progress');
+    hud.kill('You ▸ Ondine', 'attack');
     syncCamera();
   } else {
-    // 'end': the round is won, scoreboard tells the story
+    // 'end' is now the lane frame: down the silo lane toward site B in round
+    // 9, Strikers up 5–3, trading shots with Talon at the silo mouth — the
+    // map's long sightline, stacked containers and all, in one frame
     match.phase = 'live';
     match.phaseEndsAt = now + 50000;
+    match.round = 9;
     match.score.attack = 5;
     match.score.defend = 3;
+    match.targetSite = 'B';
     player.weapons.primary = createWeaponState(WEAPONS.longline);
+    player.armor = true;
     selectGun('primary');
-    place(player, -20, -16, 2.5);
-    place(actors[1], -26, -20, 2.2);
-    for (const bot of [actors[4], actors[5], actors[6], actors[7]]) {
-      bot.alive = false;
-      bot.diedAt = now - 400;
-    }
-    settle(6);
-    controller.aimAt(new THREE.Vector3(-29, 1.2, -27));
-    hud.announce('Strikers take the round', 'Wardens eliminated — match point is close.');
+    // the sightline runs down the lane's east edge (x ≈ 34), clear of the
+    // lane-cover container at (29, 8), all the way to the silo mouth
+    place(player, 34, 26, Math.PI);
+    place(actors[1], 29.5, 15, Math.PI * 1.05); // Rook crosses to the container
+    place(actors[2], 37, 33, Math.PI); // Sable holds the rear
+    const talon = actors[6];
+    place(talon, 33.5, -10, 2.9); // Talon at the silo mouth, far down-lane
+    talon.health = 70;
+    place(actors[4], 24, -24, -2.2); // Havoc deep on B, by the silos
+    settle(8);
+    controller.aimAt(new THREE.Vector3(talon.body.pos.x, 1.25, talon.body.pos.z));
+    hud.announce('', '', 0);
     syncCamera();
+    playerFire(performance.now());
+    settle(2);
+    fx.sparks(new THREE.Vector3(32.6, 1.2, -11.5), 0xffc37a, 10, 3.6);
+    hud.kill('Sable ▸ Mira', 'attack');
   }
-  hud.sync(match, player, performance.now());
+  hud.sync(match, player, performance.now(), actors, world);
   // paint twice, then hold the frame for the capture
   let painted = 0;
   (function paint() {

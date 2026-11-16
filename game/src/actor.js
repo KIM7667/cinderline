@@ -118,15 +118,30 @@ export function buildSoldier(team) {
   box(0.17, 0.52, 0.2, 0.13, 0.26, 0, matUniform);
   box(0.19, 0.1, 0.24, -0.13, 0.05, 0.02, matDark); // boots
   box(0.19, 0.1, 0.24, 0.13, 0.05, 0.02, matDark);
+  box(0.2, 0.09, 0.22, -0.13, 0.56, 0, matDark); // knee pads
+  box(0.2, 0.09, 0.22, 0.13, 0.56, 0, matDark);
   const torso = box(0.52, 0.62, 0.28, 0, 1.06, 0, matMain);
   torso.userData.part = 'body';
   box(0.54, 0.16, 0.3, 0, 0.82, 0, matDark); // belt / armour skirt
+  box(0.3, 0.34, 0.1, 0, 1.12, 0.19, matDark); // backpack
+  box(0.13, 0.17, 0.05, -0.09, 1.12, -0.165, matUniform); // chest-rig pouches
+  box(0.13, 0.17, 0.05, 0.09, 1.12, -0.165, matUniform);
   box(0.13, 0.5, 0.16, -0.34, 1.08, 0, matMain); // arms
   box(0.13, 0.5, 0.16, 0.34, 1.08, 0, matMain);
+  box(0.17, 0.12, 0.2, -0.34, 1.36, 0, matDark); // shoulder pads
+  box(0.17, 0.12, 0.2, 0.34, 1.36, 0, matDark);
   const head = box(0.3, 0.3, 0.3, 0, 1.56, 0, matSkin);
   head.userData.part = 'head';
   box(0.34, 0.12, 0.34, 0, 1.74, 0, matDark); // helmet
   box(0.34, 0.05, 0.1, 0, 1.66, -0.16, matDark); // helmet brim, faces -z
+  // a dark visor strip and a lit team band on the helmet, so a soldier reads
+  // as geared infantry — and as friend or foe — at screenshot distance
+  const matVisor = new THREE.MeshStandardMaterial({ color: 0x10151c, roughness: 0.25, metalness: 0.6 });
+  box(0.26, 0.07, 0.02, 0, 1.58, -0.155, matVisor);
+  const matBand = new THREE.MeshStandardMaterial({
+    color: main, emissive: main, emissiveIntensity: 0.9, roughness: 0.6,
+  });
+  box(0.35, 0.045, 0.35, 0, 1.685, 0, matBand);
 
   const gun = new THREE.Group();
   const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.78), matGun);
@@ -135,6 +150,12 @@ export function buildSoldier(team) {
   const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.2), matGun);
   stock.position.set(0, -0.03, 0.12);
   gun.add(stock);
+  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.07), matGun);
+  mag.position.set(0, -0.11, -0.08);
+  gun.add(mag);
+  const sight = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.08), matGun);
+  sight.position.set(0, 0.08, -0.2);
+  gun.add(sight);
   gun.position.set(0.18, 1.24, -0.18);
   group.add(gun);
 

@@ -42,6 +42,20 @@ the game is plain ES modules with three.js 0.187.0 vendored in
   planted charge and defuse it; Striker teammates push the called site
   over a waypoint graph with A* and hold angles around the plant. Sight
   is tested against the map's real sight-blockers and through smoke.
+- **Presentation.** A painted dusk sky dome (sunset gradient, cloud bands,
+  first stars), filmic ACES tone mapping, soft shadows, and a yard dressed
+  to be read at a glance: corrugated containers with freight stencils,
+  plank-and-rivet crate textures, formwork concrete, stacked container
+  piles, barrel clusters, sandbag lines, a gantry crane over the mid
+  doors, a glowing furnace mouth on A, lit skyline towers beyond the
+  walls, ground rings and light pillars marking both charge sites, and
+  dust hanging in the work lights.
+- **HUD.** Match clock and team scores with alive-pips, a sliding compass
+  strip, a live tactical minimap (floor plan from the real collider list,
+  called site lit, planted charge blinking, squad positions — enemies
+  never shown), health and armour, money, weapon and fire-mode readout,
+  dynamic-spread crosshair, hitmarkers, kill feed, buy menu, and
+  plant/defuse progress.
 - **Structure.** A fixed 60 Hz simulation kept apart from rendering;
   one module per job under `game/src/` (`world`, `actor`, `combat`,
   `bots`, `rounds`, `weapons`, `hud`, `fx`, `audio`, `input`, `player`);

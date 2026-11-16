@@ -51,12 +51,96 @@ export function createHud() {
     playButton: el('play'),
     spectate: el('spectate'),
     chargeTag: el('charge-tag'),
+    minimap: el('minimap'),
+    compassStrip: el('compass-strip'),
+    pipsA: el('pips-attack'),
+    pipsD: el('pips-defend'),
   };
 
   let bannerUntil = 0;
   let hitUntil = 0;
   let lastBuyMoney = -1;
   let lastPhase = '';
+  let lastMapAt = 0;
+  let lastPips = '';
+
+  // The compass strip: three revolutions of tick marks, 14 px per 15°, so
+  // sync() can slide the middle revolution under the centre tick by yaw.
+  {
+    const CARDINALS = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+    let html = '';
+    for (let rev = 0; rev < 3; rev += 1) {
+      for (let deg = 0; deg < 360; deg += 15) {
+        const label = CARDINALS[deg];
+        if (label) html += `<span class="card${deg === 0 ? ' north' : ''}">${label}</span>`;
+        else html += '<span>·</span>';
+      }
+    }
+    root.compassStrip.innerHTML = html;
+  }
+  const mapCtx = root.minimap.getContext('2d');
+
+  // The tactical minimap: colliders become the yard's floor plan, the sites
+  // are ringed and lettered, the called site is lit, a planted charge blinks,
+  // and the squad shows as dots with the player as a heading arrow. Enemy
+  // positions are never drawn — that is the game's information rule, and the
+  // map honours it exactly like the bots' hearing does.
+  function drawMinimap(match, player, actors, world, now) {
+    const S = 150;
+    const k = S / 92;
+    const px = (x) => (x + 46) * k;
+    const pz = (z) => (z + 46) * k;
+    mapCtx.clearRect(0, 0, S, S);
+    mapCtx.fillStyle = 'rgba(16,19,23,0.92)';
+    mapCtx.fillRect(0, 0, S, S);
+    mapCtx.fillStyle = 'rgba(242,240,234,0.20)';
+    for (const c of world.colliders) {
+      if (c.minY > 0.01 || c.maxY < 1.0) continue; // ground-plan solids only
+      mapCtx.fillRect(px(c.minX), pz(c.minZ), (c.maxX - c.minX) * k, (c.maxZ - c.minZ) * k);
+    }
+    for (const site of [world.sites.A, world.sites.B]) {
+      const called = match.targetSite === site.id;
+      mapCtx.beginPath();
+      mapCtx.arc(px(site.x), pz(site.z), site.radius * k, 0, Math.PI * 2);
+      mapCtx.strokeStyle = called ? '#ffb454' : 'rgba(255,180,84,0.45)';
+      mapCtx.lineWidth = called ? 2 : 1;
+      mapCtx.stroke();
+      mapCtx.fillStyle = called ? '#ffb454' : 'rgba(255,180,84,0.6)';
+      mapCtx.font = 'bold 11px system-ui, sans-serif';
+      mapCtx.textAlign = 'center';
+      mapCtx.textBaseline = 'middle';
+      mapCtx.fillText(site.id, px(site.x), pz(site.z));
+    }
+    if (match.planted) {
+      const blink = Math.floor(now / 400) % 2 === 0;
+      mapCtx.fillStyle = blink ? '#ff4747' : 'rgba(255,71,71,0.35)';
+      mapCtx.beginPath();
+      mapCtx.arc(px(match.planted.x), pz(match.planted.z), 3.4, 0, Math.PI * 2);
+      mapCtx.fill();
+    }
+    for (const actor of actors) {
+      if (!actor.alive || actor.isPlayer || actor.team !== 'attack') continue;
+      mapCtx.fillStyle = '#ff7a33';
+      mapCtx.beginPath();
+      mapCtx.arc(px(actor.body.pos.x), pz(actor.body.pos.z), 2.6, 0, Math.PI * 2);
+      mapCtx.fill();
+    }
+    // the player: a wedge pointing along the view yaw
+    const yaw = player.body.yaw;
+    const cx = px(player.body.pos.x);
+    const cy = pz(player.body.pos.z);
+    mapCtx.save();
+    mapCtx.translate(cx, cy);
+    mapCtx.rotate(-yaw); // the wedge's tip lands on the forward vector (-sin, -cos)
+    mapCtx.fillStyle = '#f2f0ea';
+    mapCtx.beginPath();
+    mapCtx.moveTo(0, -5);
+    mapCtx.lineTo(3.4, 4);
+    mapCtx.lineTo(-3.4, 4);
+    mapCtx.closePath();
+    mapCtx.fill();
+    mapCtx.restore();
+  }
 
   root.playButton.addEventListener('click', () => {
     if (root.onPlay) root.onPlay();
@@ -157,7 +241,7 @@ export function createHud() {
       root.overlay.hidden = true;
     },
 
-    sync(match, player, now) {
+    sync(match, player, now, actors = null, world = null) {
       // clock and phase
       let clock = '';
       let phase = '';
@@ -192,8 +276,34 @@ export function createHud() {
       if (ws) {
         root.ammoMag.textContent = String(ws.mag);
         root.ammoReserve.textContent = `/ ${ws.reserve}`;
-        root.weaponName.textContent = ws.def.name + (ws.reloadingUntil > now ? ' — RELOADING' : '');
+        root.weaponName.textContent = ws.def.name
+          + (ws.def.auto ? ' · AUTO' : ' · SEMI')
+          + (ws.reloadingUntil > now ? ' — RELOADING' : '');
         root.ammoBox.classList.toggle('empty', ws.mag === 0);
+      }
+
+      // compass: heading is -yaw in degrees (north is -z, toward the sites);
+      // 14 px per 15° puts one revolution at 336 px, strip holds three
+      const headingDeg = ((-player.body.yaw * 180) / Math.PI % 360 + 360) % 360;
+      const headingPx = (headingDeg / 360) * 336;
+      root.compassStrip.style.transform = `translateX(${(-221 - headingPx).toFixed(1)}px)`;
+
+      // squad pips and the minimap follow the actor list when main passes it
+      if (actors) {
+        const key = actors.map((a) => (a.alive ? '1' : '0')).join('');
+        if (key !== lastPips) {
+          lastPips = key;
+          const render = (team, cls) => actors
+            .filter((a) => a.team === team)
+            .map((a) => `<span class="pip ${cls}${a.alive ? '' : ' dead'}"></span>`)
+            .join('');
+          root.pipsA.innerHTML = render('attack', 'a');
+          root.pipsD.innerHTML = render('defend', 'd');
+        }
+        if (world && now - lastMapAt > 120) {
+          lastMapAt = now;
+          drawMinimap(match, player, actors, world, now);
+        }
       }
       root.money.textContent = `$${player.money}`;
 

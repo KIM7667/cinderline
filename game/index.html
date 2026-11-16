@@ -34,6 +34,25 @@
   #scorebar .d { color: var(--defend); }
   #scorebar .lbl { color: var(--muted); font-size: 10px; letter-spacing: 0.18em; align-self: center; }
 
+  /* team-alive pips under the score */
+  #pips { display: flex; gap: 14px; justify-content: center; margin-top: 5px; }
+  #pips .row { display: flex; gap: 4px; }
+  #pips .pip { width: 7px; height: 7px; border-radius: 50%; }
+  #pips .pip.a { background: var(--attack); }
+  #pips .pip.d { background: var(--defend); }
+  #pips .pip.dead { background: var(--hairline); }
+
+  /* compass strip: cardinals slide past a fixed centre tick with the yaw */
+  #compass { position: relative; width: 230px; height: 17px; margin: 7px auto 0; overflow: hidden; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); background: color-mix(in srgb, var(--surface) 55%, transparent); }
+  #compass::after { content: ''; position: absolute; left: 50%; top: 0; width: 2px; height: 5px; margin-left: -1px; background: var(--accent); }
+  #compass-strip { position: absolute; top: 1px; left: 0; white-space: nowrap; font-family: var(--font-readout); font-size: 11px; color: var(--muted); will-change: transform; }
+  #compass-strip span { display: inline-block; width: 14px; text-align: center; }
+  #compass-strip span.card { color: var(--ink); font-weight: 600; }
+  #compass-strip span.north { color: var(--accent); }
+
+  /* tactical minimap, top-left: the yard, both sites, your squad */
+  #minimap { position: fixed; left: 22px; top: 16px; width: 150px; height: 150px; border: 1px solid var(--hairline); border-radius: 6px; background: color-mix(in srgb, var(--surface) 78%, transparent); }
+
   /* crosshair with a live spread gap */
   #crosshair { --gap: 8px; position: fixed; left: 50%; top: 50%; width: 0; height: 0; }
   #crosshair i { position: absolute; background: var(--ink); opacity: 0.9; }
@@ -132,7 +151,11 @@
       <span class="lbl">—</span>
       <span class="d" id="score-defend">0</span><span class="lbl">WARDENS</span>
     </div>
+    <div id="pips"><div class="row" id="pips-attack"></div><div class="row" id="pips-defend"></div></div>
+    <div id="compass"><div id="compass-strip"></div></div>
   </div>
+
+  <canvas id="minimap" width="150" height="150"></canvas>
 
   <div id="crosshair"><i></i><i></i><i></i><i></i></div>
   <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
